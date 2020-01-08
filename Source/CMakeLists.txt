@@ -1,5 +1,5 @@
 add_executable(qi qi_main.cpp)
-set(ASAN $<$<CONFIG:RelWithDebInfo>:-fsanitize=address>)
+# set(ASAN $<$<CONFIG:RelWithDebInfo>:-fsanitize=address>)
 target_compile_options(
     qi PRIVATE
     "-Werror" "-Wall" "-Wextra" "-Wshadow"

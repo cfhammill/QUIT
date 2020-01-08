@@ -827,7 +827,7 @@ class PLANETSim(QI.SimCommand):
         outputs['b_file'] = path.abspath(self.inputs.b_file)
         return outputs
 
-############################ vfa-prep ############################
+############################ MUPA ############################
 
 
 class MUPAInputSpec(QI.FitInputSpec):
@@ -847,7 +847,7 @@ class MUPAOutputSpec(TraitedSpec):
 
 class MUPA(QI.FitCommand):
     """
-    Run VFA-Prep Analysis
+    Run MUPA Analysis
 
     """
 
@@ -872,4 +872,56 @@ class MUPASim(QI.SimCommand):
     _cmd = 'qi mupa'
     _param_files = ['PD', 'T1', 'T2']
     input_spec = MUPASimInputSpec
+    output_spec = QI.SimOutputSpec
+
+############################ MUPA-MT ############################
+
+
+class MUPAMTInputSpec(QI.FitInputSpec):
+    # Inputs - none
+
+    # Options - none. Yet
+    pass
+
+
+class MUPAMTOutputSpec(TraitedSpec):
+    pd_map = File('MUPAMT_PD.nii.gz', desc='Path to PD map', usedefault=True)
+    t1_f_map = File('MUPAMT_T1_f.nii.gz',
+                    desc='Path to T1 map', usedefault=True)
+    t2_f_map = File('MUPAMT_T2_f.nii.gz',
+                    desc='Path to T2 map', usedefault=True)
+    f_b_map = File('MUPAMT_f_b.nii.gz',
+                   desc='Path to f_b map', usedefault=True)
+    k_map = File('MUPAMT_k.nii.gz', desc='Path to k map', usedefault=True)
+    rmse_map = File('MUPA_rmse.nii.gz',
+                    desc="Path to residual map", usedefault=True)
+
+
+class MUPAMT(QI.FitCommand):
+    """
+    Run MUPA MT Analysis
+
+    """
+
+    _cmd = 'qi mupa --mt'
+    input_spec = MUPAMTInputSpec
+    output_spec = MUPAMTOutputSpec
+
+
+class MUPAMTSimInputSpec(QI.SimInputSpec):
+    # Inputs
+
+    # Options
+    pass
+
+
+class MUPAMTSim(QI.SimCommand):
+    """
+    Run MUPA simulation
+
+    """
+
+    _cmd = 'qi mupa --mt'
+    _param_files = ['PD', 'T1_f', 'T2_f', 'f_b', 'k']
+    input_spec = MUPAMTSimInputSpec
     output_spec = QI.SimOutputSpec
