@@ -57,9 +57,10 @@ template <typename ModelType_> struct MUPAFit {
     // on Blocked/Indexed. The return type is a simple struct indicating success, and on failure
     // also the reason for failure
     QI::FitReturnType
-    fit(std::vector<Eigen::ArrayXd> const &inputs,    // Input: signal data
-        Eigen::ArrayXd const &             fixed,     // Input: Fixed parameters
-        typename ModelType::VaryingArray & varying,   // Output: Varying parameters
+    fit(std::vector<Eigen::ArrayXd> const &inputs,  // Input: signal data
+        Eigen::ArrayXd const &             fixed,   // Input: Fixed parameters
+        typename ModelType::VaryingArray & varying, // Output: Varying parameters
+        typename ModelType::RSDArray *     cov,
         RMSErrorType &                     rmse,      // Output: root-mean-square error
         std::vector<Eigen::ArrayXd> &      residuals, // Optional output: point residuals
         FlagType &                         iterations /* Usually iterations */) const {
@@ -110,15 +111,20 @@ template <typename ModelType_> struct MUPAFit {
         if (!summary.IsSolutionUsable()) {
             return {false, summary.FullReport()};
         }
+        iterations = summary.iterations.size();
 
-        Eigen::ArrayXd const residual = (data - model.signal(varying, fixed)) * scale;
-        rmse                          = sqrt(residual.square().mean());
+        Eigen::ArrayXd const rs  = (data - model.signal(varying, fixed));
+        double const         var = rs.square().sum();
+        rmse                     = sqrt(var / data.rows()) * scale;
         if (residuals.size() > 0) {
-            residuals[0] = residual;
+            residuals[0] = rs * scale;
+        }
+        if (cov) {
+            QI::GetRelativeStandardDeviation<ModelType>(
+                problem, varying, var / (data.rows() - ModelType::NV), cov);
         }
         varying[0] *= scale; // Multiply signals/proton density back up
-        QI_DBVEC(varying);
-        iterations = summary.iterations.size();
+
         return {true, ""};
     }
 };
@@ -135,7 +141,8 @@ int mupa_main(int argc, char **argv) {
 
     QI_COMMON_ARGS;
 
-    args::Flag mt(parser, "MT", "Use MT model", {"mt"});
+    args::Flag              mt(parser, "MT", "Use MT model", {"mt"});
+    args::ValueFlag<double> g0(parser, "G0", "On-resonance absorption constant", {"G0"}, 1.75e-5);
 
     QI::ParseArgs(parser, argc, argv, verbose, threads);
 
@@ -145,7 +152,8 @@ int mupa_main(int argc, char **argv) {
     json doc = json_file ? QI::ReadJSON(json_file.Get()) : QI::ReadJSON(std::cin);
 
     MUPASequence sequence(doc["MUPA"]);
-    auto         process = [&](auto model, const std::string &model_name) {
+
+    auto process = [&](auto model, const std::string &model_name) {
         if (simulate) {
             QI::SimulateModel<decltype(model), false>(
                 doc, model, {}, {input_path.Get()}, verbose, simulate.Get());
@@ -153,17 +161,17 @@ int mupa_main(int argc, char **argv) {
             using FitType = MUPAFit<decltype(model)>;
             FitType fit{model};
             auto    fit_filter =
-                QI::ModelFitFilter<FitType>::New(&fit, verbose, resids, subregion.Get());
+                QI::ModelFitFilter<FitType>::New(&fit, verbose, rsd, resids, subregion.Get());
             fit_filter->ReadInputs({input_path.Get()}, {}, mask.Get());
             fit_filter->Update();
             fit_filter->WriteOutputs(prefix.Get() + model_name);
         }
     };
     if (mt) {
-        MUPAMTModel model{sequence};
+        MUPAMTModel model{{}, sequence, g0.Get()};
         process(model, "MUPAMT_");
     } else {
-        MUPAModel model{sequence};
+        MUPAModel model{{}, sequence};
         process(model, "MUPA_");
     }
     QI::Log(verbose, "Finished.");

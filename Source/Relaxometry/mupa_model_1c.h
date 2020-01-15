@@ -1,23 +1,10 @@
 #pragma once
 
-#include "ModelHelpers.h"
+#include "Model.h"
 #include "mupa_sequence.h"
 
-struct MUPAModel {
-    using DataType      = double;
-    using ParameterType = double;
-
-    static constexpr int NV = 3; // Number of varying parameters
-    static constexpr int ND = 0; // Number of derived parameters
-    static constexpr int NF = 0; // Number of fixed parameters
-    static constexpr int NI = 1; // Number of inputs
-
-    using VaryingArray = QI_ARRAYN(ParameterType, NV); // Type for the varying parameter array
-    using FixedArray   = QI_ARRAYN(ParameterType, NF); // Type for the fixed parameter array
-
-    // Sequence paramter structs
+struct MUPAModel : QI::Model<double, double, 3, 0> {
     MUPASequence &sequence;
-
     // Fitting start point and bounds
     // The PD will be scaled by the fitting function to keep parameters roughly the same magnitude
     VaryingArray const start{30., 1., 0.1};

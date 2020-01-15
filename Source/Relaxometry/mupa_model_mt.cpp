@@ -6,24 +6,12 @@
 using AugMat = Eigen::Matrix<double, 5, 5>; // Short for Augmented Matrix
 using AugVec = Eigen::Vector<double, 5>;
 
-AugMat RF_MT(double const &B1x, double const &B1y) {
-    double const G0 = 1.75e-5;
-    double const W  = M_PI * G0 * (B1x * B1x + B1y * B1y);
-    AugMat       rf;
-    rf << 0, 0, -B1y, 0, 0, //
-        0, 0, B1x, 0, 0,    //
-        B1y, -B1x, 0, 0, 0, //
-        0, 0, 0, -W, 0,     //
-        0, 0, 0, 0, 0;
-    return rf;
-};
-
 auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_ARRAY(double) {
     using T = double;
 
     T const &PD   = v[0];
     T const &R1_f = 1. / v[1];
-    T const &R1_b = 1.;
+    T const &R1_b = R1_f; // 1.;
     T const &R2_f = 1. / v[2];
     T const &f_b  = v[3];
     T const &f_f  = 1. - f_b;
@@ -47,6 +35,17 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
 
     AugMat const RpK = R + K;
 
+    auto RF_MT = [&](double const &B1x, double const &B1y) -> AugMat {
+        double const W = M_PI * G0 * (B1x * B1x + B1y * B1y);
+        AugMat       rf;
+        rf << 0, 0, -B1y, 0, 0, //
+            0, 0, B1x, 0, 0,    //
+            B1y, -B1x, 0, 0, 0, //
+            0, 0, 0, -W, 0,     //
+            0, 0, 0, 0, 0;
+        return rf;
+    };
+
     QI_DBMAT(R);
     QI_DBMAT(K);
 
@@ -63,7 +62,7 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     for (int is = 0; is < sequence.size(); is++) {
         auto const &name  = sequence.prep[is];
         auto const &pulse = sequence.prep_pulses[name];
-        AugMat      C     = CalcPulse<AugMat>(pulse, RpK, &RF_MT);
+        AugMat      C     = CalcPulse<AugMat>(pulse, RpK, RF_MT);
         prep_mats[is]     = C;
     }
 
