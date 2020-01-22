@@ -90,17 +90,16 @@ class Relax(unittest.TestCase):
             'delay': {'B1x': [0], 'B1y':[0], 'timestep':[0]}
         }}}
         sim_file = 'sim_mupa_mt.nii.gz'
-        img_sz = [16, 16, 1]
+        img_sz = [16, 16, 4]
         noise = 0.01
 
         NewImage(img_size=img_sz, fill=100.0,
                  out_file='PD.nii.gz', verbose=vb).run()
-        NewImage(img_size=img_sz, fill=1.0,
-                 out_file='T1_f.nii.gz', verbose=vb).run()
         NewImage(img_size=img_sz, fill=0.08,
                  out_file='T2_f.nii.gz', verbose=vb).run()
         NewImage(img_size=img_sz, grad_dim=0, grad_vals=(0.01, 0.15), out_file='f_b.nii.gz', verbose=vb).run()
         NewImage(img_size=img_sz, grad_dim=1, grad_vals=(25.0, 75.0), out_file='k.nii.gz', verbose=vb).run()
+        NewImage(img_size=img_sz, grad_dim=2, grad_vals=(0.8, 1.5), out_file='T1_f.nii.gz', verbose=vb).run()
 
         MUPAMTSim(sequence=seq, in_file=sim_file,
                 PD='PD.nii.gz', T1_f='T1_f.nii.gz', T2_f='T2_f.nii.gz', f_b='f_b.nii.gz', k='k.nii.gz',

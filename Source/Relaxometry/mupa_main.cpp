@@ -1,5 +1,5 @@
 /*
- *  qi_vfa_prep.cpp
+ *  mupa_main.cpp
  *
  *  Copyright (c) 2019 Tobias Wood.
  *
@@ -10,17 +10,13 @@
  */
 
 #include <Eigen/Core>
-#include <Eigen/Eigenvalues>
-#include <type_traits>
 
 // #define QI_DEBUG_BUILD 1
 
 #include "Args.h"
 #include "ImageIO.h"
 #include "Macro.h"
-#include "Model.h"
 #include "ModelFitFilter.h"
-#include "SequenceBase.h"
 #include "SimulateModel.h"
 #include "Util.h"
 

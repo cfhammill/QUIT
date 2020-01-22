@@ -20,3 +20,5 @@ struct MUPAModel : QI::Model<double, double, 3, 0> {
 };
 
 template <> struct QI::NoiseFromModelType<MUPAModel> : QI::RealNoise {};
+
+Eigen::Matrix<double, 4, 4> RF_1c(double const &B1x, double const &B1y);

@@ -11,11 +11,11 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
 
     T const &PD   = v[0];
     T const &R1_f = 1. / v[1];
-    T const &R1_b = R1_f; // 1.;
+    T const &R1_b = 1.; // R1_f;
     T const &R2_f = 1. / v[2];
     T const &f_b  = v[3];
     T const &f_f  = 1. - f_b;
-    T const &k    = v[4];
+    T const &k    = 50.; // v[4];
     T const &k_bf = k * f_f;
     T const &k_fb = k * f_b;
 
@@ -69,14 +69,14 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     // First calculate the system matrix
     AugMat X = AugMat::Identity();
     for (int is = 0; is < sequence.size(); is++) {
-        X = ramp * seg * ramp * prep_mats[is] * X;
+        X = ramp * seg * ramp * S * prep_mats[is] * X;
     }
     AugVec m_aug = SolveSteadyState(X);
 
     // Now loop through the segments and record the signal for each
     Eigen::ArrayXd sig(sequence.size());
     for (int is = 0; is < sequence.size(); is++) {
-        m_aug             = ramp * prep_mats[is] * m_aug;
+        m_aug             = ramp * S * prep_mats[is] * m_aug;
         auto       m_gm   = GeometricAvg(RUFIS, seg, m_aug, sequence.SPS);
         auto const signal = PD * m_gm[2] * sin(sequence.FA);
         sig[is]           = signal;
