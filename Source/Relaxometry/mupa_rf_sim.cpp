@@ -22,7 +22,6 @@
 #include "mupa_model_1c.h"
 #include "mupa_model_mt.h"
 #include "mupa_sequence.h"
-#include "mupa_ss.hpp"
 
 /*
  * Main
@@ -42,10 +41,6 @@ int mupa_rf_main(int argc, char **argv) {
     args::Positional<std::string> json_file(parser, "INPUT", "Input JSON file");
     // args::Positional<std::string> output_path(parser, "OUTPUT", "Output JSON file");
 
-    args::Flag mt(parser, "MT", "Use MT model", {"mt"});
-    // args::ValueFlag<double> g0(parser, "G0", "On-resonance absorption constant",
-    // {"G0"}, 1.75e-5);
-
     QI::ParseArgs(parser, argc, argv, verbose, threads);
     QI::CheckPos(json_file);
 
@@ -55,77 +50,67 @@ int mupa_rf_main(int argc, char **argv) {
 
     double const R1 = 1. / 1.0;
     double const R2 = 1. / 0.1;
-    double const PD = 100;
+    double const PD = 1.;
 
-    if (mt) {
+    using AugMat = Eigen::Matrix<double, 4, 4>;
+    using AugVec = Eigen::Vector<double, 4>;
+    AugMat R;
+    R << -R2, 0, 0, 0,      //
+        0, -R2, 0, 0,       //
+        0, 0, -R1, PD * R1, //
+        0, 0, 0, 0;
 
-        using AugMat      = Eigen::Matrix<double, 5, 5>;
-        using AugVec      = Eigen::Vector<double, 5>;
-        double const f_b  = 0.2;
-        double const f_f  = 1. - f_b;
-        double const k    = 5.;
-        double const k_bf = k * f_f;
-        double const k_fb = k * f_b;
+    AugVec m0{0, 0, PD, 1.};
+    for (auto const &p : sequence.prep_pulses) {
+        auto const &name  = p.first;
+        auto const &pulse = p.second;
 
-        AugMat R;
-        R << -R2, 0, 0, 0, 0,       //
-            0, -R2, 0, 0, 0,        //
-            0, 0, -R1, 0, R1 * f_f, //
-            0, 0, 0, -R1, R1 * f_b, //
-            0, 0, 0, 0, 0;
+        double int_b1     = 0;
+        double int_b1_sq  = 0;
+        double int_tv     = 0;
+        double int_long   = 0;
+        double t_total    = 0;
+        double tact_total = 0;
+        AugMat C_rf       = AugMat::Identity();
+        AugMat C_both     = AugMat::Identity();
+        AugVec m_rf       = m0;
+        for (long ii = 0; ii < pulse.B1x.rows(); ii++) {
+            double const &t     = pulse.timestep[ii];
+            double        b1_sq = (pulse.B1x[ii] * pulse.B1x[ii] + pulse.B1y[ii] * pulse.B1y[ii]);
+            int_b1 += sqrt(b1_sq) * t;
+            int_b1_sq += b1_sq * t;
 
-        AugMat K;
-        K << 0, 0, 0, 0, 0,       //
-            0, 0, 0, 0, 0,        //
-            0, 0, -k_fb, k_bf, 0, //
-            0, 0, k_fb, -k_bf, 0, //
-            0, 0, 0, 0, 0;
+            AugMat const rf     = RF_1c(pulse.B1x[ii], pulse.B1y[ii]);
+            AugMat const A_rf   = (rf * t).exp();
+            AugMat const both   = R + rf;
+            AugMat const A_both = (both * t).exp();
 
-        AugMat const RpK   = R + K;
-        auto         RF_MT = [&](double const &B1x, double const &B1y) -> AugMat {
-            double const W = M_PI * 1.5e-6 * (B1x * B1x + B1y * B1y);
-            AugMat       rf;
-            rf << 0, 0, -B1y, 0, 0, //
-                0, 0, B1x, 0, 0,    //
-                B1y, -B1x, 0, 0, 0, //
-                0, 0, 0, -W, 0,     //
-                0, 0, 0, 0, 0;
-            return rf;
-        };
-
-        AugVec m0{0, 0, f_f, f_b, 1.};
-
-        AugMat const equ_check = (K * 10e-3).exp();
-        AugVec const equ_m     = equ_check * m0;
-        fmt::print("K\n{}\nRpK.exp()\n{}\n", K, equ_check);
-        fmt::print("m0:   {}\nequ_m: {}\n", m0.transpose(), equ_m.transpose());
-
-        for (auto p : sequence.prep_pulses) {
-            auto const &name  = p.first;
-            auto const &pulse = p.second;
-            AugMat      C     = CalcPulse<AugMat>(pulse, RpK, RF_MT);
-            AugVec      m     = PD * C * m0;
-            fmt::print("Pulse Name: {}\t Eff_f: {}\t Eff_b: {}\n ", name, m[2] / f_f, m[3] / f_b);
+            C_rf   = A_rf * C_rf;
+            C_both = A_both * C_both;
+            m_rf   = C_rf * m_rf;
+            t_total += t;
+            if (b1_sq > 0.) {
+                tact_total += t;
+            }
+            int_tv += sqrt(m_rf[0] * m_rf[0] + m_rf[1] * m_rf[1]) * t;
+            int_long += std::abs(m_rf[2]) * t;
         }
 
-    } else {
-
-        using AugMat = Eigen::Matrix<double, 4, 4>;
-        using AugVec = Eigen::Vector<double, 4>;
-        AugMat R;
-        R << -R2, 0, 0, 0,      //
-            0, -R2, 0, 0,       //
-            0, 0, -R1, PD * R1, //
-            0, 0, 0, 0;
-
-        AugVec m0{0, 0, PD, 1.};
-        for (int is = 0; is < sequence.size(); is++) {
-            auto const &name  = sequence.prep[is];
-            auto const &pulse = sequence.prep_pulses[name];
-            AugMat      C     = CalcPulse<AugMat>(pulse, R, &RF_1c);
-            AugVec      m     = C * m0;
-            fmt::print("Pulse Name: {}\t m: {}\t Eff: {}\n", name, m.transpose(), m[2]);
-        }
+        int_tv /= t_total;
+        int_long /= t_total;
+        double const W = M_PI * 1.4e-5 * int_b1_sq / tact_total;
+        fmt::print("Pulse Name: {}\n\ttime {}\n\tactive {}\n\tint_b1 {}\n\tint_b1_sq {}\n\tW {} "
+                   "Sat {}\n\tint_tv "
+                   "{}\n\tint_long {}\n",
+                   name,
+                   t_total,
+                   tact_total,
+                   int_b1,
+                   int_b1_sq,
+                   W,
+                   exp(-W * tact_total),
+                   int_tv,
+                   int_long);
     }
     QI::Log(verbose, "Finished.");
     return EXIT_SUCCESS;
