@@ -1,4 +1,4 @@
-// #define QI_DEBUG_BUILD 1
+#define QI_DEBUG_BUILD 1
 #include "Macro.h"
 #include "mupa_model_mt.h"
 #include "mupa_ss.hpp"
@@ -18,7 +18,6 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     T const &k    = 4.3;
     T const &k_bf = k * f_f;
     T const &k_fb = k * f_b;
-    T const &B1   = v[4];
 
     AugMat R;
     R << -R2_f, 0, 0, 0, 0,         //
@@ -37,12 +36,12 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     AugMat const RpK = R + K;
 
     auto RF_MT = [&](double const &B1x, double const &B1y) -> AugMat {
-        double const W = M_PI * G0 * (B1 * B1) * (B1x * B1x + B1y * B1y);
+        double const W = M_PI * G0 * (B1x * B1x + B1y * B1y);
         AugMat       rf;
-        rf << 0, 0, -B1y * B1, 0, 0,      //
-            0, 0, B1x * B1, 0, 0,         //
-            B1y * B1, -B1x * B1, 0, 0, 0, //
-            0, 0, 0, -W, 0,               //
+        rf << 0, 0, -B1y, 0, 0, //
+            0, 0, B1x, 0, 0,    //
+            B1y, -B1x, 0, 0, 0, //
+            0, 0, 0, -W, 0,     //
             0, 0, 0, 0, 0;
         return rf;
     };
@@ -59,12 +58,17 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     AugMat const seg   = RUFIS.pow(sequence.SPS);
 
     // Setup pulse matrices
+    AugVec              m0{0, 0, 1, 1, 1};
     std::vector<AugMat> prep_mats(sequence.size());
     for (int is = 0; is < sequence.size(); is++) {
         auto const &name  = sequence.prep[is];
         auto const &pulse = sequence.prep_pulses[name];
         AugMat      C     = CalcPulse<AugMat>(pulse, RpK, RF_MT);
         prep_mats[is]     = C;
+        QI_DB(name);
+        QI_DBMAT(prep_mats[is]);
+        AugVec mc = C * m0;
+        QI_DBVEC(mc);
     }
 
     // First calculate the system matrix
@@ -72,17 +76,22 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     for (int is = 0; is < sequence.size(); is++) {
         X = ramp * seg * ramp * S * prep_mats[is] * X;
     }
-    AugVec m_aug = SolveSteadyState(X);
+    AugVec m_ss = SolveSteadyState(X);
 
     // Now loop through the segments and record the signal for each
     Eigen::ArrayXd sig(sequence.size());
+    QI_DBVEC(m_ss);
+    AugVec m_aug = m_ss;
     for (int is = 0; is < sequence.size(); is++) {
+        AugVec mtemp      = prep_mats[is] * m_aug;
         m_aug             = ramp * S * prep_mats[is] * m_aug;
         auto       m_gm   = GeometricAvg(RUFIS, seg, m_aug, sequence.SPS);
         auto const signal = PD * m_gm[2] * sin(sequence.FA);
         sig[is]           = signal;
         m_aug             = ramp * seg * m_aug;
-        QI_DB(signal);
+        QI_DBVEC(mtemp);
+        QI_DBVEC(m_aug);
+        QI_DBVEC(m_gm);
     }
     return sig;
 }

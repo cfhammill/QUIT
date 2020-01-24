@@ -87,7 +87,7 @@ int mupa_rf_main(int argc, char **argv) {
 
             C_rf   = A_rf * C_rf;
             C_both = A_both * C_both;
-            m_rf   = C_rf * m_rf;
+            m_rf   = A_rf * m_rf;
             t_total += t;
             if (b1_sq > 0.) {
                 tact_total += t;
@@ -101,7 +101,7 @@ int mupa_rf_main(int argc, char **argv) {
         double const W = M_PI * 1.4e-5 * int_b1_sq / tact_total;
         fmt::print("Pulse Name: {}\n\ttime {}\n\tactive {}\n\tint_b1 {}\n\tint_b1_sq {}\n\tW {} "
                    "Sat {}\n\tint_tv "
-                   "{}\n\tint_long {}\n",
+                   "{}\n\tint_long {}\n\tfinal: {}\n",
                    name,
                    t_total,
                    tact_total,
@@ -110,8 +110,20 @@ int mupa_rf_main(int argc, char **argv) {
                    W,
                    exp(-W * tact_total),
                    int_tv,
-                   int_long);
+                   int_long,
+                   m_rf.transpose());
     }
+
+    double gB1       = sequence.FA / sequence.Trf;
+    double int_b1_sq = (gB1 * gB1) * sequence.Trf;
+    double W         = M_PI * 1.4e-5 * int_b1_sq / sequence.Trf;
+    fmt::print("Excitation:\n\tFA: {} Trf: {}us\n\tint_b1_sq {}\n\tW {} Sat {}\n",
+               sequence.FA * 180 / M_PI,
+               sequence.Trf * 1e6,
+               int_b1_sq,
+               W,
+               exp(-W * sequence.Trf * sequence.SPS));
+
     QI::Log(verbose, "Finished.");
     return EXIT_SUCCESS;
 }
