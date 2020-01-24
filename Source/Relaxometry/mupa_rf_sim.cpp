@@ -63,7 +63,7 @@ int mupa_rf_main(int argc, char **argv) {
         using AugVec      = Eigen::Vector<double, 5>;
         double const f_b  = 0.2;
         double const f_f  = 1. - f_b;
-        double const k    = 50.;
+        double const k    = 5.;
         double const k_bf = k * f_f;
         double const k_fb = k * f_b;
 
@@ -83,7 +83,7 @@ int mupa_rf_main(int argc, char **argv) {
 
         AugMat const RpK   = R + K;
         auto         RF_MT = [&](double const &B1x, double const &B1y) -> AugMat {
-            double const W = 0.; // M_PI * 1.5e-6 * (B1x * B1x + B1y * B1y);
+            double const W = M_PI * 1.5e-6 * (B1x * B1x + B1y * B1y);
             AugMat       rf;
             rf << 0, 0, -B1y, 0, 0, //
                 0, 0, B1x, 0, 0,    //
@@ -100,12 +100,12 @@ int mupa_rf_main(int argc, char **argv) {
         fmt::print("K\n{}\nRpK.exp()\n{}\n", K, equ_check);
         fmt::print("m0:   {}\nequ_m: {}\n", m0.transpose(), equ_m.transpose());
 
-        for (int is = 0; is < sequence.size(); is++) {
-            auto const &name  = sequence.prep[is];
-            auto const &pulse = sequence.prep_pulses[name];
+        for (auto p : sequence.prep_pulses) {
+            auto const &name  = p.first;
+            auto const &pulse = p.second;
             AugMat      C     = CalcPulse<AugMat>(pulse, RpK, RF_MT);
             AugVec      m     = PD * C * m0;
-            fmt::print("Pulse Name: {}\t m: {}\t Eff: {}\n", name, m.transpose(), m[2] / f_f);
+            fmt::print("Pulse Name: {}\t Eff_f: {}\t Eff_b: {}\n ", name, m[2] / f_f, m[3] / f_b);
         }
 
     } else {

@@ -892,7 +892,7 @@ class MUPAMTOutputSpec(TraitedSpec):
                     desc='Path to T2 map', usedefault=True)
     f_b_map = File('MUPAMT_f_b.nii.gz',
                    desc='Path to f_b map', usedefault=True)
-    k_map = File('MUPAMT_k.nii.gz', desc='Path to k map', usedefault=True)
+    B1_map = File('MUPAMT_B1.nii.gz', desc='Path to B1 map', usedefault=True)
     rmse_map = File('MUPA_rmse.nii.gz',
                     desc="Path to residual map", usedefault=True)
 
@@ -922,6 +922,6 @@ class MUPAMTSim(QI.SimCommand):
     """
 
     _cmd = 'qi mupa --mt'
-    _param_files = ['PD', 'T1_f', 'T2_f', 'f_b', 'k']
+    _param_files = ['PD', 'T1_f', 'T2_f', 'f_b', 'B1']
     input_spec = MUPAMTSimInputSpec
     output_spec = QI.SimOutputSpec

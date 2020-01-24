@@ -138,7 +138,7 @@ int mupa_main(int argc, char **argv) {
     QI_COMMON_ARGS;
 
     args::Flag              mt(parser, "MT", "Use MT model", {"mt"});
-    args::ValueFlag<double> g0(parser, "G0", "On-resonance absorption constant", {"G0"}, 1.75e-5);
+    args::ValueFlag<double> g0(parser, "G0", "On-resonance absorption constant", {"G0"}, 1.4e-5);
 
     QI::ParseArgs(parser, argc, argv, verbose, threads);
 

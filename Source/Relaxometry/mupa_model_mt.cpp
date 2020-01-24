@@ -11,13 +11,14 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
 
     T const &PD   = v[0];
     T const &R1_f = 1. / v[1];
-    T const &R1_b = 1.; // R1_f;
+    T const &R1_b = R1_f;
     T const &R2_f = 1. / v[2];
     T const &f_b  = v[3];
     T const &f_f  = 1. - f_b;
-    T const &k    = 50.; // v[4];
+    T const &k    = 4.3;
     T const &k_bf = k * f_f;
     T const &k_fb = k * f_b;
+    T const &B1   = v[4];
 
     AugMat R;
     R << -R2_f, 0, 0, 0, 0,         //
@@ -36,12 +37,12 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     AugMat const RpK = R + K;
 
     auto RF_MT = [&](double const &B1x, double const &B1y) -> AugMat {
-        double const W = M_PI * G0 * (B1x * B1x + B1y * B1y);
+        double const W = M_PI * G0 * (B1 * B1) * (B1x * B1x + B1y * B1y);
         AugMat       rf;
-        rf << 0, 0, -B1y, 0, 0, //
-            0, 0, B1x, 0, 0,    //
-            B1y, -B1x, 0, 0, 0, //
-            0, 0, 0, -W, 0,     //
+        rf << 0, 0, -B1y * B1, 0, 0,      //
+            0, 0, B1x * B1, 0, 0,         //
+            B1y * B1, -B1x * B1, 0, 0, 0, //
+            0, 0, 0, -W, 0,               //
             0, 0, 0, 0, 0;
         return rf;
     };
