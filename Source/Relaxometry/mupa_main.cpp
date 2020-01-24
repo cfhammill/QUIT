@@ -11,7 +11,7 @@
 
 #include <Eigen/Core>
 
-// #define QI_DEBUG_BUILD 1
+#define QI_DEBUG_BUILD 1
 
 #include "Args.h"
 #include "ImageIO.h"
@@ -31,7 +31,10 @@ template <typename ModelType> struct MUPACost {
     template <typename T> bool operator()(T const *const vin, T *rin) const {
         Eigen::Map<typename ModelType::VaryingArray const> const varying(vin);
         Eigen::Map<QI_ARRAY(T)>                                  residuals(rin, data.rows());
-        residuals = data - model.signal(varying, fixed);
+        auto const theory = model.signal(varying, fixed);
+        residuals         = data - theory;
+        QI_DBVEC(data);
+        QI_DBVEC(theory);
         QI_DBVEC(residuals);
         return true;
     }

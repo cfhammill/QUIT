@@ -46,9 +46,6 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
         return rf;
     };
 
-    QI_DBMAT(R);
-    QI_DBMAT(K);
-
     // Setup readout segment matrices
     AugMat const Ard   = ((RpK + RF_MT(sequence.FA / sequence.Trf, 0)) * sequence.Trf).exp();
     AugMat const Rrd   = (RpK * (sequence.TR - sequence.Trf)).exp();
@@ -65,10 +62,6 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
         auto const &pulse = sequence.prep_pulses[name];
         AugMat      C     = CalcPulse<AugMat>(pulse, RpK, RF_MT);
         prep_mats[is]     = C;
-        QI_DB(name);
-        QI_DBMAT(prep_mats[is]);
-        AugVec mc = C * m0;
-        QI_DBVEC(mc);
     }
 
     // First calculate the system matrix
@@ -83,15 +76,14 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     QI_DBVEC(m_ss);
     AugVec m_aug = m_ss;
     for (int is = 0; is < sequence.size(); is++) {
-        AugVec mtemp      = prep_mats[is] * m_aug;
         m_aug             = ramp * S * prep_mats[is] * m_aug;
         auto       m_gm   = GeometricAvg(RUFIS, seg, m_aug, sequence.SPS);
         auto const signal = PD * m_gm[2] * sin(sequence.FA);
         sig[is]           = signal;
         m_aug             = ramp * seg * m_aug;
-        QI_DBVEC(mtemp);
-        QI_DBVEC(m_aug);
         QI_DBVEC(m_gm);
     }
+    QI_DBVEC(v);
+    QI_DBVEC(sig);
     return sig;
 }
