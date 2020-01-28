@@ -5,7 +5,8 @@
 #include <unordered_map>
 
 struct MUPASequence : QI::SequenceBase {
-    double                                   TR, Tramp, FA, Trf;
+    double                                   TR, Tramp, Trf;
+    Eigen::ArrayXd                           FA;
     int                                      SPS;
     std::unordered_map<std::string, RFPulse> prep_pulses;
     std::vector<std::string>                 prep;

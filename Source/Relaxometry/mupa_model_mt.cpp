@@ -18,6 +18,7 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     T const &k    = 4.3;
     T const &k_bf = k * f_f;
     T const &k_fb = k * f_b;
+    T const &B1   = v[4];
 
     AugMat R;
     R << -R2_f, 0, 0, 0, 0,         //
@@ -33,26 +34,31 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
         0, 0, k_fb, -k_bf, 0, //
         0, 0, 0, 0, 0;
 
+    AugMat const S = Eigen::DiagonalMatrix<double, 5, 5>({0, 0, 1., 1., 1.}).toDenseMatrix();
+
     AugMat const RpK = R + K;
 
     auto RF_MT = [&](double const &B1x, double const &B1y) -> AugMat {
         double const W = M_PI * G0 * (B1x * B1x + B1y * B1y);
         AugMat       rf;
-        rf << 0, 0, -B1y, 0, 0, //
-            0, 0, B1x, 0, 0,    //
-            B1y, -B1x, 0, 0, 0, //
-            0, 0, 0, -W, 0,     //
+        rf << 0, 0, -B1y * B1, 0, 0,      //
+            0, 0, B1x * B1, 0, 0,         //
+            B1y * B1, -B1x * B1, 0, 0, 0, //
+            0, 0, 0, -W * B1 * B1, 0,     //
             0, 0, 0, 0, 0;
         return rf;
     };
 
     // Setup readout segment matrices
-    AugMat const Ard   = ((RpK + RF_MT(sequence.FA / sequence.Trf, 0)) * sequence.Trf).exp();
-    AugMat const Rrd   = (RpK * (sequence.TR - sequence.Trf)).exp();
-    AugMat const S     = Eigen::DiagonalMatrix<double, 5, 5>({0, 0, 1., 1., 1.}).toDenseMatrix();
-    AugMat const ramp  = (RpK * sequence.Tramp).exp();
-    AugMat const RUFIS = S * Rrd * Ard;
-    AugMat const seg   = RUFIS.pow(sequence.SPS);
+    AugMat const        Rrd  = (RpK * (sequence.TR - sequence.Trf)).exp();
+    AugMat const        ramp = (RpK * sequence.Tramp).exp();
+    std::vector<AugMat> TR_mats(sequence.FA.rows());
+    std::vector<AugMat> seg_mats(sequence.FA.rows());
+    for (int is = 0; is < sequence.FA.rows(); is++) {
+        AugMat const Ard = ((RpK + RF_MT(sequence.FA[is] / sequence.Trf, 0)) * sequence.Trf).exp();
+        TR_mats[is]      = S * Rrd * Ard;
+        seg_mats[is]     = TR_mats[is].pow(sequence.SPS);
+    }
 
     // Setup pulse matrices
     AugVec              m0{0, 0, 1, 1, 1};
@@ -67,7 +73,7 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     // First calculate the system matrix
     AugMat X = AugMat::Identity();
     for (int is = 0; is < sequence.size(); is++) {
-        X = ramp * seg * ramp * S * prep_mats[is] * X;
+        X = ramp * seg_mats[is] * ramp * S * prep_mats[is] * X;
     }
     AugVec m_ss = SolveSteadyState(X);
 
@@ -77,10 +83,10 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     AugVec m_aug = m_ss;
     for (int is = 0; is < sequence.size(); is++) {
         m_aug             = ramp * S * prep_mats[is] * m_aug;
-        auto       m_gm   = GeometricAvg(RUFIS, seg, m_aug, sequence.SPS);
-        auto const signal = PD * m_gm[2] * sin(sequence.FA);
+        auto       m_gm   = GeometricAvg(TR_mats[is], seg_mats[is], m_aug, sequence.SPS);
+        auto const signal = PD * m_gm[2] * sin(sequence.FA[is]);
         sig[is]           = signal;
-        m_aug             = ramp * seg * m_aug;
+        m_aug             = ramp * seg_mats[is] * m_aug;
         QI_DBVEC(m_gm);
     }
     QI_DBVEC(v);

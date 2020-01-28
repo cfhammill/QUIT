@@ -32,13 +32,18 @@ auto MUPAModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_AR
         0, 0, -R1, PD * R1, //
         0, 0, 0, 0;
 
+    AugMat const Rrd  = (R * sequence.TR).exp();
+    AugMat const S    = Eigen::DiagonalMatrix<double, 4, 4>({0, 0, 1., 1.}).toDenseMatrix();
+    AugMat const ramp = (R * sequence.Tramp).exp();
+
     // Setup readout segment matrices
-    AugMat const Ard   = ((R + RF_1c(sequence.FA / sequence.Trf, 0)) * sequence.Trf).exp();
-    AugMat const Rrd   = (R * sequence.TR).exp();
-    AugMat const S     = Eigen::DiagonalMatrix<double, 4, 4>({0, 0, 1., 1.}).toDenseMatrix();
-    AugMat const ramp  = (R * sequence.Tramp).exp();
-    AugMat const RUFIS = S * Rrd * Ard;
-    AugMat const seg   = RUFIS.pow(sequence.SPS);
+    std::vector<AugMat> TR_mats(sequence.size());
+    std::vector<AugMat> seg_mats(sequence.size());
+    for (int is = 0; is < sequence.size(); is++) {
+        AugMat const Ard = ((R + RF_1c(sequence.FA[is] / sequence.Trf, 0)) * sequence.Trf).exp();
+        TR_mats[is]      = S * Rrd * Ard;
+        seg_mats[is]     = TR_mats[is].pow(sequence.SPS);
+    }
 
     // Setup pulse matrices
     std::vector<AugMat> prep_mats(sequence.size());
@@ -53,7 +58,7 @@ auto MUPAModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_AR
     QI_DBMAT(R);
     AugMat X = AugMat::Identity();
     for (int is = 0; is < sequence.size(); is++) {
-        X = ramp * seg * ramp * prep_mats[is] * X;
+        X = ramp * seg_mats[is] * ramp * prep_mats[is] * X;
     }
     AugVec m_aug = SolveSteadyState(X);
     QI_DBMAT(X);
@@ -62,9 +67,9 @@ auto MUPAModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_AR
     Eigen::ArrayXd sig(sequence.size());
     for (int is = 0; is < sequence.size(); is++) {
         m_aug     = ramp * prep_mats[is] * m_aug;
-        auto m_gm = GeometricAvg(RUFIS, seg, m_aug, sequence.SPS);
-        sig[is]   = m_gm[2] * sin(sequence.FA);
-        m_aug     = ramp * seg * m_aug;
+        auto m_gm = GeometricAvg(TR_mats[is], seg_mats[is], m_aug, sequence.SPS);
+        sig[is]   = m_gm[2] * sin(sequence.FA[is]);
+        m_aug     = ramp * seg_mats[is] * m_aug;
     }
     QI_DBVEC(sig);
     return sig;

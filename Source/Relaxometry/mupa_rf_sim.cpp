@@ -114,7 +114,7 @@ int mupa_rf_main(int argc, char **argv) {
                    m_rf.transpose());
     }
 
-    double gB1       = sequence.FA / sequence.Trf;
+    double gB1       = sequence.FA[0] / sequence.Trf;
     double int_b1_sq = (gB1 * gB1) * sequence.Trf;
     double W         = M_PI * 1.4e-5 * int_b1_sq / sequence.Trf;
     fmt::print("Excitation:\n\tFA: {} Trf: {}us\n\tint_b1_sq {}\n\tW {} Sat {}\n",

@@ -892,7 +892,8 @@ class MUPAMTOutputSpec(TraitedSpec):
                     desc='Path to T2 map', usedefault=True)
     f_b_map = File('MUPAMT_f_b.nii.gz',
                    desc='Path to f_b map', usedefault=True)
-    B1_map = File('MUPAMT_B1.nii.gz', desc='Path to B1 map', usedefault=True)
+    b1_map = File('MUPAMT_B1.nii.gz',
+                  desc='Path to B1 map', usedefault=True)
     rmse_map = File('MUPA_rmse.nii.gz',
                     desc="Path to residual map", usedefault=True)
 
