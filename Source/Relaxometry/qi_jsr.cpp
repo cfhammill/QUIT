@@ -183,7 +183,7 @@ struct JSRFit {
     fit(std::vector<Eigen::ArrayXd> const &inputs,       // Input: signal data
         ModelType::FixedArray const &      fixed,        // Input: Fixed parameters
         ModelType::VaryingArray &          best_varying, // Output: Varying parameters
-        ModelType::RSDArray *              rsd,
+        ModelType::CovarArray *            covar,
         RMSErrorType &                     rmse,      // Output: root-mean-square error
         std::vector<Eigen::ArrayXd> &      residuals, // Optional output: point residuals
         FlagType &                         iterations /* Usually iterations */) const {
@@ -253,10 +253,9 @@ struct JSRFit {
         double const var   = spgr_residual.square().sum() + ssfp_residual.square().sum();
         int const    dsize = model.spgr.size() + model.ssfp.size();
         rmse               = sqrt(spgr_residual.square().mean() + ssfp_residual.square().mean());
-        if (rsd) {
+        if (covar) {
             varying = best_varying;
-            QI::GetRelativeStandardDeviation<JSRModel>(
-                problem, varying, var / (dsize - JSRModel::NV), rsd);
+            QI::GetModelCovariance<JSRModel>(problem, varying, var / (dsize - JSRModel::NV), covar);
         }
         best_varying[0] *= scale; // Multiply signals/proton density back up
         // Wrap and convert to frequency
@@ -296,7 +295,7 @@ int jsr_main(int argc, char **argv) {
     JSRModel model{{}, spgr_seq, ssfp_seq};
     JSRFit   jsr_fit{model, npsi.Get()};
     auto     fit_filter =
-        QI::ModelFitFilter<JSRFit>::New(&jsr_fit, verbose, rsd, resids, subregion.Get());
+        QI::ModelFitFilter<JSRFit>::New(&jsr_fit, verbose, covar, resids, subregion.Get());
     fit_filter->ReadInputs({spgr_path.Get(), ssfp_path.Get()}, {b1_path.Get()}, mask.Get());
     fit_filter->Update();
     fit_filter->WriteOutputs(prefix.Get() + "JSR_");

@@ -50,8 +50,8 @@ class FitInputSpec(InputSpec):
     # Input nifti
     in_file = File(exists=True, argstr='%s', mandatory=True,
                    position=-1, desc='Input file')
-    rsd = traits.Bool(
-        decsc='Write out parameter RSD images', argstr='--rsd')
+    covar = traits.Bool(
+        decsc='Write out parameter covar images', argstr='--covar')
     residuals = traits.Bool(
         desc='Write out residuals for each data-point', argstr='--resids')
 

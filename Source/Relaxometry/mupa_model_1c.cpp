@@ -1,6 +1,6 @@
 // #define QI_DEBUG_BUILD 1
-#include "mupa_model_1c.h"
 #include "Macro.h"
+#include "mupa_model_1c.h"
 #include "mupa_ss.hpp"
 
 using AugMat = Eigen::Matrix<double, 4, 4>;

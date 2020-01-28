@@ -53,7 +53,7 @@ struct MultiEchoLogLin : MultiEchoFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           MultiEcho::FixedArray const &      fixed,
                           MultiEcho::VaryingArray &          outputs,
-                          MultiEcho::RSDArray * /* Unused */,
+                          MultiEcho::CovarArray * /* Unused */,
                           RMSErrorType &               residual,
                           std::vector<Eigen::ArrayXd> &residuals,
                           FlagType &                   iterations,
@@ -80,7 +80,7 @@ struct MultiEchoARLO : MultiEchoFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           MultiEcho::FixedArray const &      fixed,
                           MultiEcho::VaryingArray &          outputs,
-                          MultiEcho::RSDArray * /*Unused*/,
+                          MultiEcho::CovarArray * /*Unused*/,
                           RMSErrorType &               residual,
                           std::vector<Eigen::ArrayXd> &residuals,
                           FlagType &                   iterations,
@@ -114,7 +114,7 @@ struct MultiEchoNLLS : MultiEchoFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           MultiEcho::FixedArray const &      fixed,
                           MultiEcho::VaryingArray &          p,
-                          MultiEcho::RSDArray *              cov,
+                          MultiEcho::CovarArray *            cov,
                           RMSErrorType &                     rmse,
                           std::vector<Eigen::ArrayXd> &      residuals,
                           FlagType &                         iterations,
@@ -157,8 +157,7 @@ struct MultiEchoNLLS : MultiEchoFit {
             residuals[0] = rs * scale;
         }
         if (cov) {
-            QI::GetRelativeStandardDeviation<ModelType>(
-                problem, p, var / (data.rows() - ModelType::NV), cov);
+            QI::GetModelCovariance<ModelType>(problem, p, var / (data.rows() - ModelType::NV), cov);
         }
         p[0] = p[0] * scale;
         return {true, ""};
@@ -205,7 +204,7 @@ int multiecho_main(int argc, char **argv) {
         default:
             QI::Fail("Unknown algorithm type {}", algorithm.Get());
         }
-        auto fit = QI::ModelFitFilter<MultiEchoFit>::New(me, verbose, rsd, resids, subregion.Get());
+        auto fit = QI::ModelFitFilter<MultiEchoFit>::New(me, verbose, covar, resids, subregion.Get());
         fit->ReadInputs({QI::CheckPos(input_path)}, {}, mask.Get());
         const int nvols = fit->GetInput(0)->GetNumberOfComponentsPerPixel();
         if (nvols % sequence.size() == 0) {

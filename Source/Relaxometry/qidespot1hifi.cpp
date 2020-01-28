@@ -120,7 +120,7 @@ struct HIFIFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           HIFIModel::FixedArray const & /* Unused */,
                           HIFIModel::VaryingArray &    v,
-                          HIFIModel::RSDArray *        cov,
+                          HIFIModel::CovarArray *      cov,
                           RMSErrorType &               rmse,
                           std::vector<Eigen::ArrayXd> &residuals,
                           FlagType &                   iterations) const {
@@ -169,8 +169,7 @@ struct HIFIFit {
         double const var   = spgr_resid.square().sum() + mprage_resid.square().sum();
         int const    dsize = model.spgr.size() + model.mprage.size();
         if (cov) {
-            QI::GetRelativeStandardDeviation<ModelType>(
-                problem, v, var / (dsize - ModelType::NV), cov);
+            QI::GetModelCovariance<ModelType>(problem, v, var / (dsize - ModelType::NV), cov);
         }
         rmse = sqrt(var / dsize);
 
@@ -212,7 +211,7 @@ int despot1hifi_main(int argc, char **argv) {
     } else {
         HIFIFit hifi_fit{model};
         auto    fit_filter =
-            QI::ModelFitFilter<HIFIFit>::New(&hifi_fit, verbose, rsd, resids, subregion.Get());
+            QI::ModelFitFilter<HIFIFit>::New(&hifi_fit, verbose, covar, resids, subregion.Get());
         fit_filter->ReadInputs(
             {QI::CheckPos(spgr_path), QI::CheckPos(mprage_path)}, {}, mask.Get());
         fit_filter->Update();

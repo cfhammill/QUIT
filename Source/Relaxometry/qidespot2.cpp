@@ -63,7 +63,7 @@ struct DESPOT2LLS : DESPOT2Fit {
     QI::FitReturnType fit(const std::vector<QI_ARRAY(InputType)> &inputs,
                           DESPOT2::FixedArray const &             fixed,
                           DESPOT2::VaryingArray &                 outputs,
-                          DESPOT2::RSDArray * /* Unused */,
+                          DESPOT2::CovarArray * /* Unused */,
                           RMSErrorType &                    residual,
                           std::vector<QI_ARRAY(InputType)> &residuals,
                           FlagType &                        iterations) const override {
@@ -106,7 +106,7 @@ struct DESPOT2WLLS : DESPOT2Fit {
     QI::FitReturnType fit(const std::vector<QI_ARRAY(InputType)> &inputs,
                           DESPOT2::FixedArray const &             fixed,
                           DESPOT2::VaryingArray &                 outputs,
-                          DESPOT2::RSDArray * /* Unused*/,
+                          DESPOT2::CovarArray * /* Unused*/,
                           RMSErrorType &                    residual,
                           std::vector<QI_ARRAY(InputType)> &residuals,
                           FlagType &                        iterations) const override {
@@ -173,7 +173,7 @@ struct DESPOT2NLLS : DESPOT2Fit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           DESPOT2::FixedArray const &        fixed,
                           DESPOT2::VaryingArray &            p,
-                          DESPOT2::RSDArray *                cov,
+                          DESPOT2::CovarArray *              cov,
                           RMSErrorType &                     rmse,
                           std::vector<Eigen::ArrayXd> &      residuals,
                           FlagType &                         iterations) const override {
@@ -217,8 +217,7 @@ struct DESPOT2NLLS : DESPOT2Fit {
             residuals[0] = rs * scale;
         }
         if (cov) {
-            QI::GetRelativeStandardDeviation<ModelType>(
-                problem, p, var / (data.rows() - ModelType::NV), cov);
+            QI::GetModelCovariance<ModelType>(problem, p, var / (data.rows() - ModelType::NV), cov);
         }
         p[0] *= scale; // Multiply signals/proton density back up
         return {true, ""};
@@ -278,7 +277,7 @@ int despot2_main(int argc, char **argv) {
             QI::Log(verbose, "GS Mode selected");
             d2->model.elliptical = true;
         }
-        auto fit = QI::ModelFitFilter<DESPOT2Fit>::New(d2, verbose, rsd, resids, subregion.Get());
+        auto fit = QI::ModelFitFilter<DESPOT2Fit>::New(d2, verbose, covar, resids, subregion.Get());
         fit->ReadInputs({QI::CheckPos(ssfp_path)}, {QI::CheckPos(t1_path), B1.Get()}, mask.Get());
         fit->Update();
         fit->WriteOutputs(prefix.Get() + "D2_");

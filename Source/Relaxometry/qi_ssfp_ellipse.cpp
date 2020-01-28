@@ -113,7 +113,7 @@ struct EllipseFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXcd> &inputs,
                           EllipseModel::FixedArray const &    fixed,
                           EllipseModel::VaryingArray &        p,
-                          EllipseModel::RSDArray *            cov,
+                          EllipseModel::CovarArray *          cov,
                           double &                            rmse,
                           std::vector<Eigen::ArrayXcd> &      residuals,
                           FlagType &                          iterations,
@@ -173,8 +173,7 @@ struct EllipseFit {
             residuals[0] = rs * scale;
         }
         if (cov) {
-            QI::GetRelativeStandardDeviation<ModelType>(
-                problem, p, var / (data.rows() - ModelType::NV), cov);
+            QI::GetModelCovariance<ModelType>(problem, p, var / (data.rows() - ModelType::NV), cov);
         }
 
         p[0] *= scale;
@@ -211,7 +210,7 @@ int ssfp_ellipse_main(int argc, char **argv) {
     } else {
         EllipseFit fit{model};
         auto       fit_filter =
-            QI::ModelFitFilter<EllipseFit>::New(&fit, verbose, rsd, resids, subregion.Get());
+            QI::ModelFitFilter<EllipseFit>::New(&fit, verbose, covar, resids, subregion.Get());
         fit_filter->ReadInputs({sequence_path.Get()}, {}, mask.Get());
         fit_filter->SetBlocks(fit_filter->GetInput(0)->GetNumberOfComponentsPerPixel() /
                               sequence.size());

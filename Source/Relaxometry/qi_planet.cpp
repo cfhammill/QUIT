@@ -68,7 +68,7 @@ struct PLANETFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           const Eigen::ArrayXd &             fixed,
                           PLANETModel::VaryingArray &        out,
-                          PLANETModel::RSDArray * /* Unused */,
+                          PLANETModel::CovarArray * /* Unused */,
                           RMSErrorType & /* Unused */,
                           std::vector<Eigen::ArrayXd> & /* Unused */,
                           FlagType & /* Unused */,

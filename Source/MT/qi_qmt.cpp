@@ -167,7 +167,7 @@ int qmt_main(int argc, char **argv) {
         RamaniFitFunction fit{model};
 
         auto fit_filter =
-            QI::ModelFitFilter<RamaniFitFunction>::New(&fit, verbose, rsd, resids, subregion.Get());
+            QI::ModelFitFilter<RamaniFitFunction>::New(&fit, verbose, covar, resids, subregion.Get());
         fit_filter->ReadInputs({mtsat_path.Get()}, {f0.Get(), B1.Get(), T1.Get()}, mask.Get());
         fit_filter->Update();
         fit_filter->WriteOutputs(prefix.Get() + "QMT_");

@@ -51,7 +51,7 @@ class ModelFitFilter
 
     using VaryingArray  = typename ModelType::VaryingArray;
     using FixedArray    = typename ModelType::FixedArray;
-    using RSDArray      = typename ModelType::RSDArray;
+    using CovarArray    = typename ModelType::CovarArray;
     using DataArray     = QI_ARRAY(DataType);
     using ResidualArray = QI_ARRAY(DataType);
 
@@ -95,17 +95,17 @@ class ModelFitFilter
     static constexpr int DerivedOffset = HasDerived ? ModelType::NV : -1;
     static constexpr int FlagOffset    = HasDerived ? DerivedOffset + ModelType::ND : ModelType::NV;
     static constexpr int RMSErrorOffset  = FlagOffset + 1;
-    static constexpr int RSDOffset       = RMSErrorOffset + 1;
-    static constexpr int ResidualsOffset = RSDOffset + ModelType::NV;
+    static constexpr int CovarOffset     = RMSErrorOffset + 1;
+    static constexpr int ResidualsOffset = CovarOffset + ModelType::NCov;
     static constexpr int TotalOutputs    = ResidualsOffset + ModelType::NI;
 
     ModelFitFilter(FitType const *    f,
                    const bool         verbose,
-                   const bool         rsd,
+                   const bool         covar,
                    const bool         allResids,
                    std::string const &subregion) :
         m_fit(f),
-        m_verbose(verbose), m_allResiduals(allResids), m_rsd(rsd) {
+        m_verbose(verbose), m_allResiduals(allResids), m_covar(covar) {
         this->SetNumberOfRequiredInputs(ModelType::NI);
         this->SetNumberOfRequiredOutputs(TotalOutputs);
         for (int i = 0; i < TotalOutputs; i++) {
@@ -171,7 +171,7 @@ class ModelFitFilter
     }
 
     void SetOutputAllResiduals(const bool r) { m_allResiduals = r; }
-    void SetOutputRSD(const bool rsd) { m_rsd = rsd; }
+    void SetOutputCovar(const bool covar) { m_covar = covar; }
 
     void SetSubregion(const TRegion &sr) {
         m_subregion    = sr;
@@ -206,11 +206,12 @@ class ModelFitFilter
             this->itk::ProcessObject::GetOutput(ResidualsOffset + i));
     }
 
-    TOutputImage *GetRSDOutput(const int i) {
-        if (i < ModelType::NV) {
-            return dynamic_cast<TOutputImage *>(this->itk::ProcessObject::GetOutput(RSDOffset + i));
+    TOutputImage *GetCovarOutput(const int i) {
+        if (i < ModelType::NCov) {
+            return dynamic_cast<TOutputImage *>(
+                this->itk::ProcessObject::GetOutput(CovarOffset + i));
         } else {
-            QI::Fail("Requested RSD output {} but {} has {}",
+            QI::Fail("Requested covar output {} but {} has {}",
                      i,
                      typeid(ModelType).name(),
                      ModelType::NV);
@@ -273,12 +274,21 @@ class ModelFitFilter
         }
         QI::WriteImage(GetRMSErrorOutput(), prefix + "rmse" + QI::OutExt(), m_verbose);
         QI::WriteImage(GetFlagOutput(), prefix + "iterations" + QI::OutExt(), m_verbose);
-        if (m_rsd) {
-            int index = 0;
+        if (m_covar) {
             for (int ii = 0; ii < ModelType::NV; ii++) {
                 auto const &name = m_fit->model.varying_names.at(ii);
                 QI::WriteImage(
-                    GetRSDOutput(index++), prefix + name + "_rsd" + QI::OutExt(), m_verbose);
+                    GetCovarOutput(ii), prefix + "CoV_" + name + QI::OutExt(), m_verbose);
+            }
+            int index = ModelType::NV;
+            for (int ii = 0; ii < ModelType::NV; ii++) {
+                auto const &name1 = m_fit->model.varying_names.at(ii);
+                for (int jj = ii + 1; jj < ModelType::NV; jj++) {
+                    auto const &name2 = m_fit->model.varying_names.at(jj);
+                    QI::WriteImage(GetCovarOutput(index++),
+                                   prefix + "Corr_" + name1 + "_" + name2 + QI::OutExt(),
+                                   m_verbose);
+                }
             }
         }
         if (m_allResiduals) {
@@ -307,7 +317,7 @@ class ModelFitFilter
             return TFlagImage::New().GetPointer();
         } else if (idx == static_cast<itype>(RMSErrorOffset)) {
             return TRMSErrorImage::New().GetPointer();
-        } else if (idx < static_cast<itype>(RSDOffset + ModelType::NV)) {
+        } else if (idx < static_cast<itype>(CovarOffset + ModelType::NCov)) {
             return TOutputImage::New().GetPointer();
         } else if (idx < static_cast<itype>(ResidualsOffset + ModelType::NI)) {
             return TResidualsImage::New().GetPointer();
@@ -320,7 +330,7 @@ class ModelFitFilter
     }
 
     const FitType *m_fit;
-    const bool     m_verbose, m_allResiduals, m_rsd;
+    const bool     m_verbose, m_allResiduals, m_covar;
     bool           m_hasSubregion = false;
     TRegion        m_subregion;
     int            m_blocks = 1;
@@ -390,9 +400,9 @@ class ModelFitFilter
         }
         rms->Allocate(true);
 
-        if (m_rsd) {
-            for (int ii = 0; ii < ModelType::NV; ii++) {
-                auto op = this->GetRSDOutput(ii);
+        if (m_covar) {
+            for (int ii = 0; ii < ModelType::NCov; ii++) {
+                auto op = this->GetCovarOutput(ii);
                 op->SetRegions(region);
                 op->SetSpacing(spacing);
                 op->SetOrigin(origin);
@@ -475,11 +485,11 @@ class ModelFitFilter
             }
         }
 
-        std::array<itk::ImageRegionIterator<TOutputImage>, ModelType::NV> rsd_iters;
-        if (m_rsd) {
-            for (int ii = 0; ii < ModelType::NV; ii++) {
-                rsd_iters[ii] =
-                    itk::ImageRegionIterator<TOutputImage>(this->GetRSDOutput(ii), region);
+        std::array<itk::ImageRegionIterator<TOutputImage>, ModelType::NCov> covar_iters;
+        if (m_covar) {
+            for (int ii = 0; ii < ModelType::NCov; ii++) {
+                covar_iters[ii] =
+                    itk::ImageRegionIterator<TOutputImage>(this->GetCovarOutput(ii), region);
             }
         }
 
@@ -490,7 +500,7 @@ class ModelFitFilter
 
         VaryingArray outputs;
         FixedArray   fixed;
-        RSDArray *   rsd = m_rsd ? new RSDArray : nullptr;
+        CovarArray * covar = m_covar ? new CovarArray : nullptr;
 
         while (!input_iters[0].IsAtEnd()) {
             if (!mask || mask_iter.Get()) {
@@ -514,8 +524,8 @@ class ModelFitFilter
                             }
                         }
                     }
-                    if (m_rsd) {
-                        *rsd = RSDArray::Zero();
+                    if (m_covar) {
+                        *covar = CovarArray::Zero();
                     }
 
                     typename FitType::RMSErrorType rmse = 0;
@@ -531,14 +541,14 @@ class ModelFitFilter
                     QI::FitReturnType status;
                     if constexpr (Blocked && Indexed) {
                         status = m_fit->fit(
-                            inputs, fixed, outputs, rsd, rmse, rs, flag, b, rmse_iter.GetIndex());
+                            inputs, fixed, outputs, covar, rmse, rs, flag, b, rmse_iter.GetIndex());
                     } else if constexpr (Blocked) {
-                        status = m_fit->fit(inputs, fixed, outputs, rsd, rmse, rs, flag, b);
+                        status = m_fit->fit(inputs, fixed, outputs, covar, rmse, rs, flag, b);
                     } else if constexpr (Indexed) {
                         status = m_fit->fit(
-                            inputs, fixed, outputs, rsd, rmse, rs, flag, rmse_iter.GetIndex());
+                            inputs, fixed, outputs, covar, rmse, rs, flag, rmse_iter.GetIndex());
                     } else {
-                        status = m_fit->fit(inputs, fixed, outputs, rsd, rmse, rs, flag);
+                        status = m_fit->fit(inputs, fixed, outputs, covar, rmse, rs, flag);
                     }
 
                     if (!status.success && m_verbose) {
@@ -558,9 +568,9 @@ class ModelFitFilter
                         for (int i = 0; i < ModelType::NV; i++) {
                             output_iters[i].Set(outputs[i]);
                         }
-                        if (m_rsd) {
-                            for (int ii = 0; ii < ModelType::NV; ii++) {
-                                rsd_iters[ii].Set((*rsd)[ii]);
+                        if (m_covar) {
+                            for (int ii = 0; ii < ModelType::NCov; ii++) {
+                                covar_iters[ii].Set((*covar)[ii]);
                             }
                         }
                     }
@@ -594,8 +604,8 @@ class ModelFitFilter
                     for (auto &o : output_iters) {
                         o.Set(0);
                     }
-                    if (m_rsd) {
-                        for (auto &c : rsd_iters) {
+                    if (m_covar) {
+                        for (auto &c : covar_iters) {
                             c.Set(0);
                         }
                     }
@@ -631,8 +641,8 @@ class ModelFitFilter
                     ++d;
                 }
             }
-            if (m_rsd) {
-                for (auto &c : rsd_iters) {
+            if (m_covar) {
+                for (auto &c : covar_iters) {
                     ++c;
                 }
             }

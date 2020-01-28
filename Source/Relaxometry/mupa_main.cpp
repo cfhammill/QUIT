@@ -11,7 +11,7 @@
 
 #include <Eigen/Core>
 
-#define QI_DEBUG_BUILD 1
+// #define QI_DEBUG_BUILD 1
 
 #include "Args.h"
 #include "ImageIO.h"
@@ -33,9 +33,6 @@ template <typename ModelType> struct MUPACost {
         Eigen::Map<QI_ARRAY(T)>                                  residuals(rin, data.rows());
         auto const theory = model.signal(varying, fixed);
         residuals         = data - theory;
-        QI_DBVEC(data);
-        QI_DBVEC(theory);
-        QI_DBVEC(residuals);
         return true;
     }
 };
@@ -59,17 +56,13 @@ template <typename ModelType_> struct MUPAFit {
     fit(std::vector<Eigen::ArrayXd> const &inputs,  // Input: signal data
         Eigen::ArrayXd const &             fixed,   // Input: Fixed parameters
         typename ModelType::VaryingArray & varying, // Output: Varying parameters
-        typename ModelType::RSDArray *     cov,
+        typename ModelType::CovarArray *   cov,
         RMSErrorType &                     rmse,      // Output: root-mean-square error
         std::vector<Eigen::ArrayXd> &      residuals, // Optional output: point residuals
         FlagType &                         iterations /* Usually iterations */) const {
         // First scale down the raw data so that PD will be roughly the same magnitude as other
         // parameters This is important for numerical stability in the optimiser
-
-        QI_DBVEC(inputs[0]);
-
         double scale = inputs[0].maxCoeff();
-        QI_DB(scale);
         if (scale < std::numeric_limits<double>::epsilon()) {
             varying = ModelType::VaryingArray::Zero();
             rmse    = 0.0;
@@ -111,15 +104,17 @@ template <typename ModelType_> struct MUPAFit {
             return {false, summary.FullReport()};
         }
         iterations = summary.iterations.size();
-
-        Eigen::ArrayXd const rs  = (data - model.signal(varying, fixed));
-        double const         var = rs.square().sum();
-        rmse                     = sqrt(var / data.rows()) * scale;
+        double              var;
+        std::vector<double> rs(data.size());
+        problem.Evaluate(ceres::Problem::EvaluateOptions(), &var, &rs, nullptr, nullptr);
+        rmse = sqrt(var / data.rows()) * scale;
         if (residuals.size() > 0) {
-            residuals[0] = rs * scale;
+            for (long ii = 0; ii < residuals[0].size(); ii++) {
+                residuals[0][ii] = rs[ii] * scale;
+            }
         }
         if (cov) {
-            QI::GetRelativeStandardDeviation<ModelType>(
+            QI::GetModelCovariance<ModelType>(
                 problem, varying, var / (data.rows() - ModelType::NV), cov);
         }
         varying[0] *= scale; // Multiply signals/proton density back up
@@ -160,7 +155,7 @@ int mupa_main(int argc, char **argv) {
             using FitType = MUPAFit<decltype(model)>;
             FitType fit{model};
             auto    fit_filter =
-                QI::ModelFitFilter<FitType>::New(&fit, verbose, rsd, resids, subregion.Get());
+                QI::ModelFitFilter<FitType>::New(&fit, verbose, covar, resids, subregion.Get());
             fit_filter->ReadInputs({input_path.Get()}, {}, mask.Get());
             fit_filter->Update();
             fit_filter->WriteOutputs(prefix.Get() + model_name);

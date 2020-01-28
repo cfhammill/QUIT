@@ -1,4 +1,4 @@
-#define QI_DEBUG_BUILD 1
+// #define QI_DEBUG_BUILD 1
 #include "Macro.h"
 #include "mupa_model_mt.h"
 #include "mupa_ss.hpp"

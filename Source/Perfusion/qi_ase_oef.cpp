@@ -178,7 +178,7 @@ int ase_oef_main(int argc, char **argv) {
     } else {
         auto process = [&](auto fit_func) {
             auto fit_filter = QI::ModelFitFilter<decltype(fit_func)>::New(
-                &fit_func, verbose, rsd, resids, subregion.Get());
+                &fit_func, verbose, covar, resids, subregion.Get());
             fit_filter->ReadInputs({QI::CheckPos(input_path)}, {}, mask.Get());
             // QI::VolumeF::SpacingType  vox_size = input->GetSpacing();
             // if (slice_arg) {

@@ -30,10 +30,12 @@ template <typename DT_, typename PT_, int NV_, int NF_, int NI_ = 1, int ND_ = 0
     static constexpr int NF = NF_; // Number of fixed parameters (fixed per voxel, e.g. B1)
     static constexpr int ND = ND_; // Number of derived parameters (calculated from varying)
     static constexpr int NI = NI_; // Number of inputs
+    static constexpr int NCov =
+        NV * (NV + 1) / 2; // Number of parameter variance/covariance entries
 
     using VaryingArray = QI_ARRAYN(ParameterType, NV);
     using FixedArray   = QI_ARRAYN(ParameterType, NF);
-    using RSDArray     = QI_ARRAYN(ParameterType, NV);
+    using CovarArray   = QI_ARRAYN(ParameterType, NCov);
     using DerivedArray = QI_ARRAYN(ParameterType, ND);
 
     template <typename Derived>
@@ -41,20 +43,35 @@ template <typename DT_, typename PT_, int NV_, int NF_, int NI_ = 1, int ND_ = 0
         -> QI_ARRAY(typename Derived::Scalar);
 };
 
+/*
+ *  Convert the Covariance Matrix from Ceres into something useful
+ * The diagonal elements are the estimation variance of each parameter (after division by the
+ * residual). Square-root to get the standard deviation. Off-diagonal elements need to be divided by
+ * the standard deviation of each variable to get the correlation.
+ */
 template <typename Model>
-void GetRelativeStandardDeviation(ceres::Problem &                    p,
-                                  typename Model::VaryingArray const &v,
-                                  double const &                      scale,
-                                  typename Model::RSDArray *          rsd) {
+void GetModelCovariance(ceres::Problem &                    p,
+                        typename Model::VaryingArray const &v,
+                        double const &                      scale,
+                        typename Model::CovarArray *        ptr) {
     ceres::Covariance::Options cov_options;
     ceres::Covariance          cov_c(cov_options);
     cov_c.Compute({std::make_pair(v.data(), v.data())}, &p);
-    double cov[Model::NV * Model::NV]; // This must be the full matrix
-    cov_c.GetCovarianceBlock(v.data(), v.data(), cov);
 
+    Eigen::MatrixXd full(Model::NV, Model::NV);
+    cov_c.GetCovarianceBlock(v.data(), v.data(), full.data());
+    full *= scale;
+    typename Model::CovarArray &cov = (*ptr);
+    cov.head(Model::NV)             = full.diagonal().array().sqrt();
+    int index                       = Model::NV;
     for (int ii = 0; ii < Model::NV; ii++) {
-        (*rsd)[ii] = sqrt(cov[ii * Model::NV + ii] * scale) / std::abs(v[ii]);
+        for (int jj = ii + 1; jj < Model::NV; jj++) {
+            cov[index++] = full(ii, jj) / (cov[ii] * cov[jj]);
+        }
     }
+    cov.head(Model::NV) /= v;
+    QI_DBMAT(full);
+    QI_DBVEC(cov);
 }
 
 /*

@@ -72,7 +72,7 @@ struct FMNLLS : FMFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           FMModel::FixedArray const &        fixed,
                           FMModel::VaryingArray &            bestP,
-                          FMModel::RSDArray *                cov,
+                          FMModel::CovarArray *              cov,
                           RMSErrorType &                     rmse,
                           std::vector<Eigen::ArrayXd> &      residuals,
                           FlagType &                         iterations) const override {
@@ -141,7 +141,7 @@ struct FMNLLS : FMFit {
             }
             if (cov) {
                 p = bestP;
-                QI::GetRelativeStandardDeviation<ModelType>(
+                QI::GetModelCovariance<ModelType>(
                     problem, p, var / (data.rows() - ModelType::NV), cov);
             }
             bestP[0] = bestP[0] * scale;
@@ -189,7 +189,7 @@ int despot2fm_main(int argc, char **argv) {
         fm.max_iterations = its.Get();
         fm.asymmetric     = asym.Get();
         auto fit_filter =
-            QI::ModelFitFilter<FMNLLS>::New(&fm, verbose, rsd, resids, subregion.Get());
+            QI::ModelFitFilter<FMNLLS>::New(&fm, verbose, covar, resids, subregion.Get());
         fit_filter->ReadInputs(
             {QI::CheckPos(ssfp_path)}, {QI::CheckPos(t1_path), B1.Get()}, mask.Get());
         fit_filter->Update();

@@ -174,7 +174,7 @@ template <int N> void Process() {
     } else {
         LFit fit{model};
         auto fit_filter =
-            QI::ModelFitFilter<LFit>::New(&fit, verbose, rsd, resids, subregion.Get());
+            QI::ModelFitFilter<LFit>::New(&fit, verbose, covar, resids, subregion.Get());
         fit_filter->ReadInputs({input_path.Get()}, {}, mask.Get());
         fit_filter->Update();
         fit_filter->WriteOutputs(prefix.Get() + "LTZ_");

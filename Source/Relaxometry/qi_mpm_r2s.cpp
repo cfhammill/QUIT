@@ -130,7 +130,7 @@ struct MPMFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           const Eigen::ArrayXd & /* Unused */,
                           ModelType::VaryingArray &    v,
-                          ModelType::RSDArray *        cov,
+                          ModelType::CovarArray *      cov,
                           RMSErrorType &               rmse,
                           std::vector<Eigen::ArrayXd> &residuals,
                           FlagType &                   iterations) const {
@@ -184,8 +184,7 @@ struct MPMFit {
             pdw_resid.square().sum() + t1w_resid.square().sum() + mtw_resid.square().sum();
         int const dsize = model.pdw_s.size() + model.t1w_s.size() + model.mtw_s.size();
         if (cov) {
-            QI::GetRelativeStandardDeviation<MPMModel>(
-                problem, v, var / (dsize - ModelType::NV), cov);
+            QI::GetModelCovariance<MPMModel>(problem, v, var / (dsize - ModelType::NV), cov);
         }
         rmse      = sqrt(var / dsize);
         v.tail(3) = v.tail(3) * scale; // Multiply signals/proton densities back up
@@ -219,7 +218,7 @@ int mpm_r2s_main(int argc, char **argv) {
     MPMModel model{{}, pdw_seq, t1w_seq, mtw_seq};
     MPMFit   mpm_fit{model};
     auto     fit_filter =
-        QI::ModelFitFilter<MPMFit>::New(&mpm_fit, verbose, rsd, resids, subregion.Get());
+        QI::ModelFitFilter<MPMFit>::New(&mpm_fit, verbose, covar, resids, subregion.Get());
     fit_filter->ReadInputs({pdw_path.Get(), t1w_path.Get(), mtw_path.Get()}, {}, mask.Get());
     fit_filter->Update();
     fit_filter->WriteOutputs(prefix.Get() + "MPM_");

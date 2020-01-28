@@ -51,7 +51,7 @@ struct DESPOT1LLS : DESPOT1Fit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           DESPOT1::FixedArray const &        fixed,
                           DESPOT1::VaryingArray &            outputs,
-                          DESPOT1::RSDArray * /* Unused */,
+                          DESPOT1::CovarArray * /* Unused */,
                           RMSErrorType &               residual,
                           std::vector<Eigen::ArrayXd> &residuals,
                           FlagType &                   iterations) const override {
@@ -80,7 +80,7 @@ struct DESPOT1WLLS : DESPOT1Fit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           DESPOT1::FixedArray const &        fixed,
                           DESPOT1::VaryingArray &            outputs,
-                          DESPOT1::RSDArray * /* Unused */,
+                          DESPOT1::CovarArray * /* Unused */,
                           RMSErrorType &               residual,
                           std::vector<Eigen::ArrayXd> &residuals,
                           FlagType &                   iterations) const override {
@@ -123,7 +123,7 @@ struct DESPOT1NLLS : DESPOT1Fit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           DESPOT1::FixedArray const &        fixed,
                           DESPOT1::VaryingArray &            p,
-                          DESPOT1::RSDArray *                cov,
+                          DESPOT1::CovarArray *              cov,
                           RMSErrorType &                     rmse,
                           std::vector<Eigen::ArrayXd> &      residuals,
                           FlagType &                         iterations) const override {
@@ -166,8 +166,7 @@ struct DESPOT1NLLS : DESPOT1Fit {
             residuals[0] = rs * scale;
         }
         if (cov) {
-            QI::GetRelativeStandardDeviation<DESPOT1>(
-                problem, p, var / (data.rows() - DESPOT1::NV), cov);
+            QI::GetModelCovariance<DESPOT1>(problem, p, var / (data.rows() - DESPOT1::NV), cov);
         }
         p[0] = p[0] * scale;
         return {true, ""};
@@ -217,7 +216,7 @@ int despot1_main(int argc, char **argv) {
         }
         if (its)
             d1->max_iterations = its.Get();
-        auto fit = QI::ModelFitFilter<DESPOT1Fit>::New(d1, verbose, rsd, resids, subregion.Get());
+        auto fit = QI::ModelFitFilter<DESPOT1Fit>::New(d1, verbose, covar, resids, subregion.Get());
         fit->ReadInputs({QI::CheckPos(spgr_path)}, {B1.Get()}, mask.Get());
         fit->Update();
         fit->WriteOutputs(prefix.Get() + "D1_");

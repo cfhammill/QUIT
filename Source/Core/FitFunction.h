@@ -56,7 +56,7 @@ struct FitFunction : FitFunctionBase<ModelType, false, false> {
     virtual FitReturnType fit(const std::vector<QI_ARRAY(InputType)> &inputs,
                               typename ModelType::FixedArray const &  fixed,
                               typename ModelType::VaryingArray &      outputs,
-                              typename ModelType::RSDArray *        cov,
+                              typename ModelType::CovarArray *        cov,
                               RMSErrorType &                          rmse,
                               std::vector<QI_ARRAY(InputType)> &      residuals,
                               FlagType &                              flag) const = 0;
@@ -75,7 +75,7 @@ struct NLLSFitFunction : FitFunction<ModelType> {
     FitReturnType fit(const std::vector<QI_ARRAY(InputType)> &inputs,
                       typename ModelType::FixedArray const &  fixed,
                       typename ModelType::VaryingArray &      p,
-                      typename ModelType::RSDArray *        cov,
+                      typename ModelType::CovarArray *        cov,
                       RMSErrorType &                          rmse,
                       std::vector<QI_ARRAY(InputType)> &      residuals,
                       FlagType &                              iterations) const {
@@ -111,7 +111,7 @@ struct NLLSFitFunction : FitFunction<ModelType> {
             residuals[0] = rs;
         }
         if (cov) {
-            QI::GetRelativeStandardDeviation<ModelType>(problem, p, var / (data.rows() - ModelType::NV), cov);
+            QI::GetModelCovariance<ModelType>(problem, p, var / (data.rows() - ModelType::NV), cov);
         }
 
         return {true, ""};
@@ -131,7 +131,7 @@ struct ScaledNLLSFitFunction : FitFunction<ModelType, FlagType_> {
     FitReturnType fit(std::vector<QI_ARRAY(InputType)> const &inputs,
                       typename ModelType::FixedArray const &  fixed,
                       typename ModelType::VaryingArray &      p,
-                      typename ModelType::RSDArray *        cov,
+                      typename ModelType::CovarArray *        cov,
                       RMSErrorType &                          rmse,
                       std::vector<QI_ARRAY(InputType)> &      residuals,
                       FlagType &                              iterations) const override {
@@ -172,7 +172,7 @@ struct ScaledNLLSFitFunction : FitFunction<ModelType, FlagType_> {
             residuals[0] = rs * scale;
         }
         if (cov) {
-            QI::GetRelativeStandardDeviation<ModelType>(problem, p, var / (data.rows() - ModelType::NV), cov);
+            QI::GetModelCovariance<ModelType>(problem, p, var / (data.rows() - ModelType::NV), cov);
         }
         p[0] = p[0] * scale;
         return {true, ""};
@@ -191,7 +191,7 @@ struct BlockFitFunction : FitFunctionBase<ModelType, true, false> {
     virtual FitReturnType fit(const std::vector<QI_ARRAY(InputType)> &inputs,
                               typename ModelType::FixedArray const &  fixed,
                               typename ModelType::VaryingArray &      outputs,
-                              typename ModelType::RSDArray *        cov,
+                              typename ModelType::CovarArray *        cov,
                               RMSErrorType &                          rmse,
                               std::vector<QI_ARRAY(InputType)> &      point_residuals,
                               FlagType &                              flag,
@@ -211,7 +211,7 @@ struct IndexedFitFunction : FitFunctionBase<ModelType, false, true> {
     virtual FitReturnType fit(const std::vector<QI_ARRAY(InputType)> &inputs,
                               typename ModelType::FixedArray const &  fixed,
                               typename ModelType::VaryingArray &      outputs,
-                              typename ModelType::RSDArray *        cov,
+                              typename ModelType::CovarArray *        cov,
                               RMSErrorType &                          rmse,
                               std::vector<QI_ARRAY(InputType)> &      point_residuals,
                               FlagType &                              flag,

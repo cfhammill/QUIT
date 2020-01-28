@@ -85,7 +85,7 @@ template <typename Model> struct SRCFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           typename Model::FixedArray const & fixed,
                           typename Model::VaryingArray &     v,
-                          typename Model::RSDArray * /*Unused */,
+                          typename Model::CovarArray * /*Unused */,
                           RMSErrorType &               residual,
                           std::vector<Eigen::ArrayXd> &residuals,
                           FlagType &                   iterations) const {
@@ -180,7 +180,7 @@ int mcdespot_main(int argc, char **argv) {
             QI::Log(verbose, "High bounds: {}", src.model.bounds_hi.transpose());
 
             auto fit_filter =
-                QI::ModelFitFilter<FitType>::New(&src, verbose, rsd, resids, subregion.Get());
+                QI::ModelFitFilter<FitType>::New(&src, verbose, covar, resids, subregion.Get());
             fit_filter->ReadInputs(
                 {spgr_path.Get(), ssfp_path.Get()}, {f0.Get(), B1.Get()}, mask.Get());
             fit_filter->Update();

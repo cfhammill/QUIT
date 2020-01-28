@@ -126,7 +126,7 @@ struct EMTFit {
     QI::FitReturnType fit(const std::vector<Eigen::ArrayXd> &inputs,
                           ModelType::FixedArray const &      fixed,
                           ModelType::VaryingArray &          p,
-                          ModelType::RSDArray *              cov,
+                          ModelType::CovarArray *            cov,
                           RMSErrorType &                     rmse,
                           std::vector<Eigen::ArrayXd> &      residuals,
                           FlagType &                         iterations) const {
@@ -158,7 +158,7 @@ struct EMTFit {
         }
         rmse = summary.final_cost;
         if (cov) {
-            // QI::GetRelativeStandardDeviation<EMTModel>(problem, p, cov);
+            // QI::GetModelCovariance<EMTModel>(problem, p, cov);
             // Not even trying this for now
         }
         p[0] *= scale;
@@ -244,7 +244,7 @@ int ssfp_emt_main(int argc, char **argv) {
 
         EMTFit fit{model};
         auto   fit_filter =
-            QI::ModelFitFilter<EMTFit>::New(&fit, verbose, rsd, resids, subregion.Get());
+            QI::ModelFitFilter<EMTFit>::New(&fit, verbose, covar, resids, subregion.Get());
         fit_filter->ReadInputs(
             {G_path.Get(), a_path.Get(), b_path.Get()}, {B1.Get(), ""}, mask.Get());
         fit_filter->SetFixed(1, T2_f_calc);
