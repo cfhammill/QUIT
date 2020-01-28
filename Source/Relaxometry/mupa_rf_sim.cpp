@@ -67,8 +67,8 @@ int mupa_rf_main(int argc, char **argv) {
 
         double int_b1     = 0;
         double int_b1_sq  = 0;
-        double int_tv     = 0;
-        double int_long   = 0;
+        double eff_tv     = 0;
+        double eff_long   = 0;
         double t_total    = 0;
         double tact_total = 0;
         AugMat C_rf       = AugMat::Identity();
@@ -92,16 +92,15 @@ int mupa_rf_main(int argc, char **argv) {
             if (b1_sq > 0.) {
                 tact_total += t;
             }
-            int_tv += sqrt(m_rf[0] * m_rf[0] + m_rf[1] * m_rf[1]) * t;
-            int_long += std::abs(m_rf[2]) * t;
+            eff_tv += sqrt(m_rf[0] * m_rf[0] + m_rf[1] * m_rf[1]) * t;
+            eff_long += std::abs(m_rf[2]) * t;
         }
 
-        int_tv /= t_total;
-        int_long /= t_total;
-        double const W = M_PI * 1.4e-5 * int_b1_sq / tact_total;
+        double       eff_flip = atan2(m_rf[2], m_rf.head(2).norm()) * 180 / M_PI - 90;
+        double const W        = M_PI * 1.4e-5 * int_b1_sq / tact_total;
         fmt::print("Pulse Name: {}\n\ttime {}\n\tactive {}\n\tint_b1 {}\n\tint_b1_sq {}\n\tW {} "
-                   "Sat {}\n\tint_tv "
-                   "{}\n\tint_long {}\n\tfinal: {}\n",
+                   "Sat {}\n\tEffective Transverse Time: {} "
+                   "\n\tEffective Longitudinal Time: {}\n\tEffective flip-angle: {}\n\tfinal: {}\n",
                    name,
                    t_total,
                    tact_total,
@@ -109,8 +108,9 @@ int mupa_rf_main(int argc, char **argv) {
                    int_b1_sq,
                    W,
                    exp(-W * tact_total),
-                   int_tv,
-                   int_long,
+                   eff_tv,
+                   eff_long,
+                   eff_flip,
                    m_rf.transpose());
     }
 
@@ -118,7 +118,7 @@ int mupa_rf_main(int argc, char **argv) {
     double int_b1_sq = (gB1 * gB1) * sequence.Trf;
     double W         = M_PI * 1.4e-5 * int_b1_sq / sequence.Trf;
     fmt::print("Excitation:\n\tFA: {} Trf: {}us\n\tint_b1_sq {}\n\tW {} Sat {}\n",
-               sequence.FA * 180 / M_PI,
+               sequence.FA.transpose() * 180 / M_PI,
                sequence.Trf * 1e6,
                int_b1_sq,
                W,
