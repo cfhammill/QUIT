@@ -21,6 +21,7 @@
 
 #include "mupa_model_1c.h"
 #include "mupa_model_mt.h"
+#include "mupa_pulse.h"
 #include "mupa_sequence.h"
 
 /*
@@ -60,7 +61,8 @@ int mupa_rf_main(int argc, char **argv) {
         0, 0, -R1, PD * R1, //
         0, 0, 0, 0;
 
-    AugVec m0{0, 0, PD, 1.};
+    AugVec                           m0{0, 0, PD, 1.};
+    std::map<std::string, PrepPulse> prep_pulses;
     for (auto const &p : sequence.prep_pulses) {
         auto const &name  = p.first;
         auto const &pulse = p.second;
@@ -96,33 +98,32 @@ int mupa_rf_main(int argc, char **argv) {
             eff_long += std::abs(m_rf[2]) * t;
         }
 
-        double       eff_flip = atan2(m_rf[2], m_rf.head(2).norm()) * 180 / M_PI - 90;
-        double const W        = M_PI * 1.4e-5 * int_b1_sq / tact_total;
-        fmt::print("Pulse Name: {}\n\ttime {}\n\tactive {}\n\tint_b1 {}\n\tint_b1_sq {}\n\tW {} "
-                   "Sat {}\n\tEffective Transverse Time: {} "
-                   "\n\tEffective Longitudinal Time: {}\n\tEffective flip-angle: {}\n\tfinal: {}\n",
-                   name,
-                   t_total,
-                   tact_total,
-                   int_b1,
-                   int_b1_sq,
-                   W,
-                   exp(-W * tact_total),
-                   eff_tv,
-                   eff_long,
-                   eff_flip,
-                   m_rf.transpose());
-    }
+        double       eff_flip   = atan2(m_rf[2], m_rf.head(2).norm()) - M_PI_2;
+        double const B1_sq_mean = int_b1_sq / tact_total;
 
-    double gB1       = sequence.FA[0] / sequence.Trf;
-    double int_b1_sq = (gB1 * gB1) * sequence.Trf;
-    double W         = M_PI * 1.4e-5 * int_b1_sq / sequence.Trf;
-    fmt::print("Excitation:\n\tFA: {} Trf: {}us\n\tint_b1_sq {}\n\tW {} Sat {}\n",
-               sequence.FA.transpose() * 180 / M_PI,
-               sequence.Trf * 1e6,
-               int_b1_sq,
-               W,
-               exp(-W * sequence.Trf * sequence.SPS));
+        prep_pulses[name] = PrepPulse{eff_flip, eff_long, eff_tv, B1_sq_mean};
+
+        AugMat approx;
+        approx << 0, 0, 0, 0,                           //
+            0, 0, 0, 0,                                 //
+            0, 0, exp(-R2 * eff_tv) * cos(eff_flip), 0, //
+            0, 0, 0, 1;
+
+        fmt::print("Exact\n{}\nApprox\n{}\n", C_both, approx);
+    }
+    json output;
+    output["prep_pulses"] = prep_pulses;
+    fmt::print("{}\n", output.dump());
+
+    // double gB1       = sequence.FA[0] / sequence.Trf;
+    // double int_b1_sq = (gB1 * gB1) * sequence.Trf;
+    // double W         = M_PI * 1.4e-5 * int_b1_sq / sequence.Trf;
+    // fmt::print("Excitation:\n\tFA: {} Trf: {}us\n\tint_b1_sq {}\n\tW {} Sat {}\n",
+    //            sequence.FA.transpose() * 180 / M_PI,
+    //            sequence.Trf * 1e6,
+    //            int_b1_sq,
+    //            W,
+    //            exp(-W * sequence.Trf * sequence.SPS));
 
     QI::Log(verbose, "Finished.");
     return EXIT_SUCCESS;
