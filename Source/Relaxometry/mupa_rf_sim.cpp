@@ -39,15 +39,11 @@ int mupa_rf_main(int argc, char **argv) {
                                  {'T', "threads"},
                                  QI::GetDefaultThreads());
 
-    args::Positional<std::string> json_file(parser, "INPUT", "Input JSON file");
+    args::Positional<std::string> in_file(parser, "INPUT", "Input JSON file");
     // args::Positional<std::string> output_path(parser, "OUTPUT", "Output JSON file");
 
     QI::ParseArgs(parser, argc, argv, verbose, threads);
-    QI::CheckPos(json_file);
-
-    QI::Log(verbose, "Reading sequence parameters");
-    json         doc = json_file ? QI::ReadJSON(json_file.Get()) : QI::ReadJSON(std::cin);
-    MUPASequence sequence(doc["MUPA"]);
+    QI::CheckPos(in_file);
 
     double const R1 = 1. / 1.0;
     double const R2 = 1. / 0.1;
@@ -61,11 +57,14 @@ int mupa_rf_main(int argc, char **argv) {
         0, 0, -R1, PD * R1, //
         0, 0, 0, 0;
 
-    AugVec                           m0{0, 0, PD, 1.};
-    std::map<std::string, PrepPulse> prep_pulses;
-    for (auto const &p : sequence.prep_pulses) {
-        auto const &name  = p.first;
-        auto const &pulse = p.second;
+    AugVec m0{0, 0, PD, 1.};
+
+    QI::Log(verbose, "Reading pulses");
+    json input = QI::ReadJSON(in_file.Get());
+    json output;
+    for (auto const &j : input.items()) {
+        auto const &name  = j.key();
+        auto const &pulse = j.value().get<RFPulse>();
 
         double int_b1     = 0;
         double int_b1_sq  = 0;
@@ -101,30 +100,18 @@ int mupa_rf_main(int argc, char **argv) {
         double       eff_flip   = atan2(m_rf[2], m_rf.head(2).norm()) - M_PI_2;
         double const B1_sq_mean = int_b1_sq / tact_total;
 
-        prep_pulses[name] = PrepPulse{eff_flip, eff_long, eff_tv, B1_sq_mean};
+        output[name] = PrepPulse{eff_flip, eff_long, eff_tv, tact_total, B1_sq_mean};
 
         AugMat approx;
-        approx << 0, 0, 0, 0,                           //
-            0, 0, 0, 0,                                 //
-            0, 0, exp(-R2 * eff_tv) * cos(eff_flip), 0, //
+        approx << 0, 0, 0, 0, //
+            0, 0, 0, 0,       //
+            0, 0, exp(-R2 * eff_tv) * cos(eff_flip),
+            PD * (1 - exp(-R1 * eff_long)), //
             0, 0, 0, 1;
 
-        fmt::print("Exact\n{}\nApprox\n{}\n", C_both, approx);
+        // fmt::print("Exact\n{}\nApprox\n{}\n", C_both, approx);
     }
-    json output;
-    output["prep_pulses"] = prep_pulses;
-    fmt::print("{}\n", output.dump());
-
-    // double gB1       = sequence.FA[0] / sequence.Trf;
-    // double int_b1_sq = (gB1 * gB1) * sequence.Trf;
-    // double W         = M_PI * 1.4e-5 * int_b1_sq / sequence.Trf;
-    // fmt::print("Excitation:\n\tFA: {} Trf: {}us\n\tint_b1_sq {}\n\tW {} Sat {}\n",
-    //            sequence.FA.transpose() * 180 / M_PI,
-    //            sequence.Trf * 1e6,
-    //            int_b1_sq,
-    //            W,
-    //            exp(-W * sequence.Trf * sequence.SPS));
-
+    fmt::print("{}\n", output.dump(2));
     QI::Log(verbose, "Finished.");
     return EXIT_SUCCESS;
 }

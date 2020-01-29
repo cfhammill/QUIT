@@ -1,6 +1,6 @@
 // #define QI_DEBUG_BUILD 1
-#include "Macro.h"
 #include "mupa_model_mt.h"
+#include "Macro.h"
 #include "mupa_ss.hpp"
 
 using AugMat = Eigen::Matrix<double, 5, 5>; // Short for Augmented Matrix
@@ -64,10 +64,16 @@ auto MUPAMTModel::signal(VaryingArray const &v, FixedArray const &) const -> QI_
     AugVec              m0{0, 0, 1, 1, 1};
     std::vector<AugMat> prep_mats(sequence.size());
     for (int is = 0; is < sequence.size(); is++) {
-        auto const &name  = sequence.prep[is];
-        auto const &pulse = sequence.prep_pulses[name];
-        AugMat      C     = CalcPulse<AugMat>(pulse, RpK, RF_MT);
-        prep_mats[is]     = C;
+        auto const & name = sequence.prep[is];
+        auto const & p    = sequence.prep_pulses[name];
+        double const W    = M_PI * G0 * B1 * B1 * p.B1_sq_mean;
+        AugMat       C;
+        C << 0, 0, 0, 0, 0,                                                          //
+            0, 0, 0, 0, 0,                                                           //
+            0, 0, exp(-R2_f * p.T_t) * cos(p.FA), 0, f_f * (1 - exp(-R1_f * p.T_l)), //
+            0, 0, 0, exp(-W * p.T_act), f_b * (1. - exp(-R1_b * p.T_l)),             //
+            0, 0, 0, 0, 1;
+        prep_mats[is] = C;
     }
 
     // First calculate the system matrix

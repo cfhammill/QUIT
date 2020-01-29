@@ -8,7 +8,7 @@ struct MUPASequence : QI::SequenceBase {
     double                                   TR, Tramp, Trf;
     Eigen::ArrayXd                           FA;
     int                                      SPS;
-    std::unordered_map<std::string, RFPulse> prep_pulses;
+    std::unordered_map<std::string, PrepPulse> prep_pulses;
     std::vector<std::string>                 prep;
     QI_SEQUENCE_DECLARE(MUPA);
     Eigen::Index size() const override { return prep.size(); };
